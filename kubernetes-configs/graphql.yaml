@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: graphql-service-account 
+  namespace: ecommerce
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: graphql-service
+  namespace: ecommerce
+spec:
+  selector:
+    app: graphql
+  type: ClusterIP
+  ports:
+  - protocol: TCP
+    port: 3002
+    targetPort: 3002
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: graphql
+  namespace: ecommerce
+  labels:
+    app.kubernetes.io/version: "0.1.6"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: graphql
+      role: api
+      workload: ecommerce
+  template:
+    metadata:
+      labels:
+        app: graphql
+        role: api
+        workload: ecommerce
+        version: "0.1.6"
+    spec:
+      serviceAccountName: graphql-service-account
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - orders
+            topologyKey: "kubernetes.io/hostname"
+      nodeSelector:
+        managedBy: karpenter
+        billing-team: ecommerce
+      containers:
+      - name: graphql-container
+        image: "lukondefmwila/ecommerce-graphql:0.1.6"
+        ports:
+        - containerPort: 3002
+        resources:
+          requests:
+            cpu: "1"
+            memory: "64Mi"

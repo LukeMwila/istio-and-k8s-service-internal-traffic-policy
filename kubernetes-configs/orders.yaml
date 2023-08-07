@@ -1,0 +1,100 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: orders-service-account 
+  namespace: ecommerce
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orders-service
+  namespace: ecommerce
+spec:
+  selector:
+    app: orders
+  type: ClusterIP
+  ports:
+  - protocol: TCP
+    port: 3003
+    targetPort: 3003
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-1
+  namespace: ecommerce
+  labels:
+    app.kubernetes.io/version: "0.2.9"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orders
+      workload: ecommerce
+  template:
+    metadata:
+      labels:
+        app: orders
+        workload: ecommerce
+        version: "0.2.9"
+    spec:
+      serviceAccountName: orders-service-account
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: "topology.kubernetes.io/zone"
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: orders
+      nodeSelector:
+        managedBy: karpenter
+        billing-team: ecommerce
+      containers:
+        - name: orders-container
+          image: "lukondefmwila/ecommerce-orders:0.2.9"
+          ports:
+          - containerPort: 3003
+          resources:
+            requests:
+              cpu: "1"
+              memory: "64Mi"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-2
+  namespace: ecommerce
+  labels:
+    app.kubernetes.io/version: "0.3.7-alpha"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orders
+      workload: ecommerce
+  template:
+    metadata:
+      labels:
+        app: orders
+        workload: ecommerce
+        version: "0.3.7-alpha"
+    spec:
+      serviceAccountName: orders-service-account
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - orders
+            topologyKey: "topology.kubernetes.io/zone"
+      nodeSelector:
+        managedBy: karpenter
+        billing-team: ecommerce
+      containers:
+        - name: orders-container
+          image: "lukondefmwila/ecommerce-orders:0.3.7-alpha"
+          ports:
+          - containerPort: 3003

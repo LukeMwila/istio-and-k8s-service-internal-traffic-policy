@@ -1,0 +1,31 @@
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: orders-destination-rule
+  namespace: ecommerce
+spec:
+  host: orders-service.ecommerce.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:                        
+      localityLbSetting:
+        distribute:
+        - from: af-south-1/af-south-1a/*    
+          to:
+            "af-south-1/af-south-1a/*": 80 
+            "af-south-1/af-south-1b/*": 20
+        - from: af-south-1/af-south-1b/*    
+          to:
+            "af-south-1/af-south-1a/*": 80
+            "af-south-1/af-south-1b/*": 20
+        - from: af-south-1/af-south-1c/*    
+          to:
+            "af-south-1/af-south-1a/*": 80 
+            "af-south-1/af-south-1b/*": 20
+    connectionPool:
+      http:
+        http2MaxRequests: 10
+        maxRequestsPerConnection: 10
+    outlierDetection:
+      consecutiveGatewayErrors: 1
+      interval: 1m
+      baseEjectionTime: 30s

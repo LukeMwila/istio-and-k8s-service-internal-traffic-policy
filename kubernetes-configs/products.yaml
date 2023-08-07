@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: products-service-account 
+  namespace: ecommerce
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: products-service
+  namespace: ecommerce
+spec:
+  selector:
+    app: products
+  type: ClusterIP
+  ports:
+  - protocol: TCP
+    port: 3004
+    targetPort: 3004
+  internalTrafficPolicy: Local
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: products-1
+  namespace: ecommerce
+  labels:
+    app.kubernetes.io/version: "0.1.5"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: products
+      role: api
+      workload: ecommerce
+  template:
+    metadata:
+      labels:
+        app: products
+        role: api
+        workload: ecommerce
+        version: "0.1.5"
+    spec:
+      serviceAccountName: products-service-account
+      nodeSelector:
+        node.kubernetes.io/instance-type: m5.large
+      containers:
+      - name: products-container
+        image: "lukondefmwila/ecommerce-products:0.1.5"
+        ports:
+        - containerPort: 3004
+--- 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: products-2
+  namespace: ecommerce
+  labels:
+    app.kubernetes.io/version: "0.1.6-alpha"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: products
+      role: api
+      workload: ecommerce
+  template:
+    metadata:
+      labels:
+        app: products
+        role: api
+        workload: ecommerce
+        version: "0.1.6-alpha"
+    spec:
+      serviceAccountName: products-service-account
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - orders
+            topologyKey: "kubernetes.io/hostname"
+      nodeSelector:
+        managedBy: karpenter
+        billing-team: ecommerce
+      containers:
+      - name: products-container
+        image: "lukondefmwila/ecommerce-products:0.1.6-alpha"
+        ports:
+        - containerPort: 3004
